@@ -19,14 +19,12 @@ import com.jimzhou03.suijicalendar.R
 const val REMINDER_CHANNEL_ID = "important_dates_and_tasks"
 
 fun createReminderChannel(context: Context) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        val channel = NotificationChannel(
-            REMINDER_CHANNEL_ID,
-            "纪念日与清单提醒",
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply { description = "岁记日历的本地提醒，可能受系统省电策略影响而延迟" }
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
+    val channel = NotificationChannel(
+        REMINDER_CHANNEL_ID,
+        "纪念日与清单提醒",
+        NotificationManager.IMPORTANCE_DEFAULT,
+    ).apply { description = "岁记日历的本地提醒，可能受系统省电策略影响而延迟" }
+    context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
 }
 
 class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
