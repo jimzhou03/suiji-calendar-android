@@ -144,8 +144,8 @@ fun CalendarScreen(viewModel: SuijiViewModel) {
             initialDate = selectedDate,
             editing = editorTarget,
             onDismiss = { showEditor = false },
-            onSave = { name, type, basis, date, leap, note, solar, lunar, countMode, annual ->
-                viewModel.saveCommemoration(editorTarget, name, type, basis, date, leap, note, solar, lunar, countMode, annual)
+            onSave = { name, type, basis, date, leap, note, solar, lunar, countMode, annual, reminder, advance, minutes ->
+                viewModel.saveCommemoration(editorTarget, name, type, basis, date, leap, note, solar, lunar, countMode, annual, reminder, advance, minutes)
                 showEditor = false
             },
         )

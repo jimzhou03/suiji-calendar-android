@@ -61,8 +61,8 @@ fun CountdownScreen(viewModel: SuijiViewModel) {
         }
     }
     if (showEditor) {
-        CommemorationEditor(today, editing, { showEditor = false }) { name, type, basis, date, leap, note, solar, lunar, countMode, annual ->
-            viewModel.saveCommemoration(editing, name, type, basis, date, leap, note, solar, lunar, countMode, annual)
+        CommemorationEditor(today, editing, { showEditor = false }) { name, type, basis, date, leap, note, solar, lunar, countMode, annual, reminder, advance, minutes ->
+            viewModel.saveCommemoration(editing, name, type, basis, date, leap, note, solar, lunar, countMode, annual, reminder, advance, minutes)
             showEditor = false
         }
     }

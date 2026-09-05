@@ -25,6 +25,7 @@ import androidx.navigation.compose.rememberNavController
 import com.jimzhou03.suijicalendar.ui.calendar.CalendarScreen
 import com.jimzhou03.suijicalendar.ui.countdown.CountdownScreen
 import com.jimzhou03.suijicalendar.ui.task.TodayScreen
+import com.jimzhou03.suijicalendar.ui.settings.SettingsScreen
 
 private enum class MainDestination(val route: String, val label: String) {
     CALENDAR("calendar", "日历"), COUNTDOWN("countdown", "倒数日"),
@@ -75,7 +76,7 @@ fun SuijiApp() {
             composable(MainDestination.CALENDAR.route) { CalendarScreen(viewModel) }
             composable(MainDestination.COUNTDOWN.route) { CountdownScreen(viewModel) }
             composable(MainDestination.TODAY.route) { TodayScreen(viewModel) }
-            composable(MainDestination.SETTINGS.route) { PlaceholderScreen("设置", "提醒、备份与隐私") }
+            composable(MainDestination.SETTINGS.route) { SettingsScreen(viewModel) }
         }
     }
 }

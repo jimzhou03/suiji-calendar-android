@@ -19,9 +19,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import com.jimzhou03.suijicalendar.widget.refreshWidgets
+import com.jimzhou03.suijicalendar.reminder.ReminderScheduler
 
 class SuijiViewModel(application: Application) : AndroidViewModel(application) {
-    val repository = (application as SuijiApplication).repository
+    private val app = application as SuijiApplication
+    val repository = app.repository
+    val remindersEnabled = app.settingsStore.remindersEnabled.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        true,
+    )
     val commemorations = repository.commemorations.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
@@ -55,6 +62,9 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
         lunarTrack: Boolean,
         countMode: CustomCountMode,
         annual: Boolean,
+        reminderEnabled: Boolean,
+        reminderAdvanceDays: Int,
+        reminderMinutes: Int,
     ) {
         val lunar = if (basis == CalendarBasis.SOLAR) {
             CalendarEngine.solarToLunar(date)
@@ -87,15 +97,16 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
                     colorArgb = color,
                     enableSolarTrack = solarTrack,
                     enableLunarTrack = lunarTrack,
-                    reminderEnabled = editing?.reminderEnabled ?: true,
-                    reminderAdvanceDays = editing?.reminderAdvanceDays ?: 7,
-                    reminderMinutesOfDay = editing?.reminderMinutesOfDay ?: 9 * 60,
+                    reminderEnabled = reminderEnabled,
+                    reminderAdvanceDays = reminderAdvanceDays,
+                    reminderMinutesOfDay = reminderMinutes,
                     customCountMode = countMode.name,
                     annual = annual,
                     createdAt = editing?.createdAt ?: System.currentTimeMillis(),
                 ),
             )
             refreshWidgets(getApplication())
+            ReminderScheduler(getApplication()).rebuild()
         }
     }
 
@@ -103,6 +114,7 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.deleteCommemoration(item)
             refreshWidgets(getApplication())
+            ReminderScheduler(getApplication()).rebuild()
         }
     }
 
@@ -130,6 +142,7 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
                 ),
             )
             refreshWidgets(getApplication())
+            ReminderScheduler(getApplication()).rebuild()
         }
     }
 
@@ -137,6 +150,7 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.setTaskCompleted(item, completed)
             refreshWidgets(getApplication())
+            ReminderScheduler(getApplication()).rebuild()
         }
     }
 
@@ -144,6 +158,7 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.moveTaskToDate(item, LocalDate.now())
             refreshWidgets(getApplication())
+            ReminderScheduler(getApplication()).rebuild()
         }
     }
 
@@ -151,6 +166,14 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.deleteTaskSeries(item)
             refreshWidgets(getApplication())
+            ReminderScheduler(getApplication()).rebuild()
+        }
+    }
+
+    fun setRemindersEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            app.settingsStore.setRemindersEnabled(enabled)
+            ReminderScheduler(getApplication()).rebuild()
         }
     }
 }

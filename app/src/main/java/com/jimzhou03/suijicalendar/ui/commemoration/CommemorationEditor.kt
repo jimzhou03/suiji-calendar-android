@@ -33,7 +33,7 @@ fun CommemorationEditor(
     initialDate: LocalDate,
     editing: CommemorationEntity?,
     onDismiss: () -> Unit,
-    onSave: (String, CommemorationType, CalendarBasis, LocalDate, Boolean, String, Boolean, Boolean, CustomCountMode, Boolean) -> Unit,
+    onSave: (String, CommemorationType, CalendarBasis, LocalDate, Boolean, String, Boolean, Boolean, CustomCountMode, Boolean, Boolean, Int, Int) -> Unit,
 ) {
     var name by remember(editing) { mutableStateOf(editing?.name.orEmpty()) }
     var type by remember(editing) {
@@ -55,6 +55,12 @@ fun CommemorationEditor(
         mutableStateOf(editing?.customCountMode?.let { CustomCountMode.valueOf(it) } ?: CustomCountMode.COUNTDOWN)
     }
     var annual by remember(editing) { mutableStateOf(editing?.annual ?: true) }
+    var reminderEnabled by remember(editing) { mutableStateOf(editing?.reminderEnabled ?: true) }
+    var advanceText by remember(editing) { mutableStateOf((editing?.reminderAdvanceDays ?: 7).toString()) }
+    var reminderTime by remember(editing) {
+        val minutes = editing?.reminderMinutesOfDay ?: 9 * 60
+        mutableStateOf("%02d:%02d".format(minutes / 60, minutes % 60))
+    }
     var error by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -98,23 +104,40 @@ fun CommemorationEditor(
                 ToggleRow("每年标注公历日期", solarTrack) { solarTrack = it }
                 ToggleRow("每年标注农历日期", lunarTrack) { lunarTrack = it }
                 OutlinedTextField(note, { note = it }, label = { Text("备注（可选）") }, modifier = Modifier.fillMaxWidth())
-                Text("默认提前7天及当天09:00提醒，可在提醒设置中修改。")
+                ToggleRow("启用本地提醒", reminderEnabled) { reminderEnabled = it }
+                if (reminderEnabled) {
+                    OutlinedTextField(advanceText, { advanceText = it; error = null }, label = { Text("提前天数") }, singleLine = true)
+                    OutlinedTextField(reminderTime, { reminderTime = it; error = null }, label = { Text("提醒时间 HH:mm") }, singleLine = true)
+                    Text("将同时在提前日与当天提醒；系统省电策略可能造成延迟。")
+                }
             }
         },
         confirmButton = {
             Button(onClick = {
                 val parsed = runCatching { LocalDate.parse(dateText.trim()) }.getOrNull()
+                val advance = advanceText.toIntOrNull()
+                val minutes = parseMinutes(reminderTime)
                 when {
                     name.isBlank() -> error = "请填写名称"
                     parsed == null -> error = "日期格式应为 YYYY-MM-DD"
                     parsed.year !in 1901..2100 -> error = "仅支持 1901—2100 年"
                     !solarTrack && !lunarTrack -> error = "至少启用一条年度轨道"
-                    else -> onSave(name, type, basis, parsed, leapMonth, note, solarTrack, lunarTrack, countMode, annual)
+                    reminderEnabled && (advance == null || advance !in 0..365) -> error = "提前天数应为 0—365"
+                    reminderEnabled && minutes == null -> error = "提醒时间格式应为 HH:mm"
+                    else -> onSave(name, type, basis, parsed, leapMonth, note, solarTrack, lunarTrack, countMode, annual, reminderEnabled, advance ?: 7, minutes ?: 9 * 60)
                 }
             }) { Text("保存") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
+}
+
+private fun parseMinutes(value: String): Int? {
+    val parts = value.trim().split(':')
+    if (parts.size != 2) return null
+    val hour = parts[0].toIntOrNull() ?: return null
+    val minute = parts[1].toIntOrNull() ?: return null
+    return if (hour in 0..23 && minute in 0..59) hour * 60 + minute else null
 }
 
 @Composable
