@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import com.jimzhou03.suijicalendar.widget.refreshWidgets
 
 class SuijiViewModel(application: Application) : AndroidViewModel(application) {
     val repository = (application as SuijiApplication).repository
@@ -94,11 +95,15 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
                     createdAt = editing?.createdAt ?: System.currentTimeMillis(),
                 ),
             )
+            refreshWidgets(getApplication())
         }
     }
 
     fun deleteCommemoration(item: CommemorationEntity) {
-        viewModelScope.launch { repository.deleteCommemoration(item) }
+        viewModelScope.launch {
+            repository.deleteCommemoration(item)
+            refreshWidgets(getApplication())
+        }
     }
 
     fun saveTask(
@@ -124,18 +129,28 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
                     createdAt = editing?.createdAt ?: System.currentTimeMillis(),
                 ),
             )
+            refreshWidgets(getApplication())
         }
     }
 
     fun setTaskCompleted(item: TaskItem, completed: Boolean) {
-        viewModelScope.launch { repository.setTaskCompleted(item, completed) }
+        viewModelScope.launch {
+            repository.setTaskCompleted(item, completed)
+            refreshWidgets(getApplication())
+        }
     }
 
     fun moveTaskToToday(item: TaskItem) {
-        viewModelScope.launch { repository.moveTaskToDate(item, LocalDate.now()) }
+        viewModelScope.launch {
+            repository.moveTaskToDate(item, LocalDate.now())
+            refreshWidgets(getApplication())
+        }
     }
 
     fun deleteTask(item: TaskSeriesEntity) {
-        viewModelScope.launch { repository.deleteTaskSeries(item) }
+        viewModelScope.launch {
+            repository.deleteTaskSeries(item)
+            refreshWidgets(getApplication())
+        }
     }
 }

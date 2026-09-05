@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">岁记日历</string>
+    <string name="countdown_widget_description">显示最近的倒数日</string>
+    <string name="today_widget_description">显示并勾选今日清单</string>
 </resources>
