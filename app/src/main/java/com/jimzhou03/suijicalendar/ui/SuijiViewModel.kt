@@ -1,10 +1,14 @@
 package com.jimzhou03.suijicalendar.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jimzhou03.suijicalendar.SuijiApplication
 import com.jimzhou03.suijicalendar.core.date.CalendarEngine
+import com.jimzhou03.suijicalendar.backup.BackupManager
+import com.jimzhou03.suijicalendar.backup.BackupPayload
+import com.jimzhou03.suijicalendar.backup.ImportMode
 import com.jimzhou03.suijicalendar.core.model.CalendarBasis
 import com.jimzhou03.suijicalendar.core.model.CommemorationType
 import com.jimzhou03.suijicalendar.core.model.CustomCountMode
@@ -17,6 +21,8 @@ import com.jimzhou03.suijicalendar.data.local.TaskSeriesEntity
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import com.jimzhou03.suijicalendar.widget.refreshWidgets
 import com.jimzhou03.suijicalendar.reminder.ReminderScheduler
@@ -174,6 +180,35 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             app.settingsStore.setRemindersEnabled(enabled)
             ReminderScheduler(getApplication()).rebuild()
+        }
+    }
+
+    fun exportBackup(uri: Uri, onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { BackupManager(app, repository).exportTo(uri) }
+            }
+            onResult(result)
+        }
+    }
+
+    fun inspectBackup(uri: Uri, onResult: (Result<BackupPayload>) -> Unit) {
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { BackupManager(app, repository).readFrom(uri) }
+            }
+            onResult(result)
+        }
+    }
+
+    fun importBackup(payload: BackupPayload, mode: ImportMode, onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) { BackupManager(app, repository).import(payload, mode) }
+                refreshWidgets(getApplication())
+                ReminderScheduler(getApplication()).rebuild()
+            }
+            onResult(result)
         }
     }
 }

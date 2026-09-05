@@ -123,4 +123,56 @@ class SuijiRepository(private val database: AppDatabase) {
         taskDao.insertAllSeries(series)
         taskDao.insertAllOccurrences(occurrences)
     }
+
+    suspend fun snapshot(): Triple<
+        List<CommemorationEntity>,
+        List<com.jimzhou03.suijicalendar.data.local.TaskSeriesEntity>,
+        List<com.jimzhou03.suijicalendar.data.local.TaskOccurrenceEntity>,
+    > = Triple(commemorationsDao.getAll(), taskDao.getAllSeries(), taskDao.getAllOccurrences())
+
+    suspend fun mergeEverything(
+        importedCommemorations: List<CommemorationEntity>,
+        importedSeries: List<com.jimzhou03.suijicalendar.data.local.TaskSeriesEntity>,
+        importedOccurrences: List<com.jimzhou03.suijicalendar.data.local.TaskOccurrenceEntity>,
+    ): Triple<Int, Int, Int> = database.withTransaction {
+        val existingCommemorationKeys = commemorationsDao.getAll().map {
+            "${it.name}|${it.originalSolarEpochDay}|${it.originalBasis}"
+        }.toMutableSet()
+        var commemorationCount = 0
+        importedCommemorations.forEach { item ->
+            val key = "${item.name}|${item.originalSolarEpochDay}|${item.originalBasis}"
+            if (existingCommemorationKeys.add(key)) {
+                commemorationsDao.upsert(item.copy(id = 0))
+                commemorationCount++
+            }
+        }
+
+        val existingSeries = taskDao.getAllSeries()
+        val keyToId = existingSeries.associate { "${it.title}|${it.anchorEpochDay}|${it.recurrence}" to it.id }.toMutableMap()
+        val oldToNewId = mutableMapOf<Long, Long>()
+        var seriesCount = 0
+        importedSeries.forEach { item ->
+            val key = "${item.title}|${item.anchorEpochDay}|${item.recurrence}"
+            val existingId = keyToId[key]
+            if (existingId != null) oldToNewId[item.id] = existingId else {
+                val newId = taskDao.upsertSeries(item.copy(id = 0))
+                oldToNewId[item.id] = newId
+                keyToId[key] = newId
+                seriesCount++
+            }
+        }
+        var occurrenceCount = 0
+        val occurrenceKeys = taskDao.getAllOccurrences().map {
+            "${it.seriesId}|${it.scheduledEpochDay}|${it.displayEpochDay}|${it.migrationCopy}"
+        }.toMutableSet()
+        importedOccurrences.forEach { item ->
+            val newSeriesId = oldToNewId[item.seriesId] ?: return@forEach
+            val key = "$newSeriesId|${item.scheduledEpochDay}|${item.displayEpochDay}|${item.migrationCopy}"
+            if (occurrenceKeys.add(key)) {
+                taskDao.insertOccurrence(item.copy(id = 0, seriesId = newSeriesId))
+                occurrenceCount++
+            }
+        }
+        Triple(commemorationCount, seriesCount, occurrenceCount)
+    }
 }
