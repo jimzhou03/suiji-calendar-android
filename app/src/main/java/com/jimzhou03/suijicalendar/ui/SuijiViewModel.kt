@@ -7,6 +7,7 @@ import com.jimzhou03.suijicalendar.SuijiApplication
 import com.jimzhou03.suijicalendar.core.date.CalendarEngine
 import com.jimzhou03.suijicalendar.core.model.CalendarBasis
 import com.jimzhou03.suijicalendar.core.model.CommemorationType
+import com.jimzhou03.suijicalendar.core.model.CustomCountMode
 import com.jimzhou03.suijicalendar.core.model.RecurrenceRule
 import com.jimzhou03.suijicalendar.core.task.TaskEngine
 import com.jimzhou03.suijicalendar.core.task.TaskItem
@@ -51,6 +52,8 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
         note: String,
         solarTrack: Boolean,
         lunarTrack: Boolean,
+        countMode: CustomCountMode,
+        annual: Boolean,
     ) {
         val lunar = if (basis == CalendarBasis.SOLAR) {
             CalendarEngine.solarToLunar(date)
@@ -86,6 +89,8 @@ class SuijiViewModel(application: Application) : AndroidViewModel(application) {
                     reminderEnabled = editing?.reminderEnabled ?: true,
                     reminderAdvanceDays = editing?.reminderAdvanceDays ?: 7,
                     reminderMinutesOfDay = editing?.reminderMinutesOfDay ?: 9 * 60,
+                    customCountMode = countMode.name,
+                    annual = annual,
                     createdAt = editing?.createdAt ?: System.currentTimeMillis(),
                 ),
             )

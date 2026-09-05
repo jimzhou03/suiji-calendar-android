@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.jimzhou03.suijicalendar.core.model.CalendarBasis
 import com.jimzhou03.suijicalendar.core.model.CommemorationType
+import com.jimzhou03.suijicalendar.core.model.CustomCountMode
 import com.jimzhou03.suijicalendar.data.local.CommemorationEntity
 import java.time.LocalDate
 
@@ -32,7 +33,7 @@ fun CommemorationEditor(
     initialDate: LocalDate,
     editing: CommemorationEntity?,
     onDismiss: () -> Unit,
-    onSave: (String, CommemorationType, CalendarBasis, LocalDate, Boolean, String, Boolean, Boolean) -> Unit,
+    onSave: (String, CommemorationType, CalendarBasis, LocalDate, Boolean, String, Boolean, Boolean, CustomCountMode, Boolean) -> Unit,
 ) {
     var name by remember(editing) { mutableStateOf(editing?.name.orEmpty()) }
     var type by remember(editing) {
@@ -50,6 +51,10 @@ fun CommemorationEditor(
     var note by remember(editing) { mutableStateOf(editing?.note.orEmpty()) }
     var solarTrack by remember(editing) { mutableStateOf(editing?.enableSolarTrack ?: true) }
     var lunarTrack by remember(editing) { mutableStateOf(editing?.enableLunarTrack ?: true) }
+    var countMode by remember(editing) {
+        mutableStateOf(editing?.customCountMode?.let { CustomCountMode.valueOf(it) } ?: CustomCountMode.COUNTDOWN)
+    }
+    var annual by remember(editing) { mutableStateOf(editing?.annual ?: true) }
     var error by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -82,6 +87,14 @@ fun CommemorationEditor(
                 if (basis == CalendarBasis.LUNAR) {
                     ToggleRow("闰月", leapMonth) { leapMonth = it }
                 }
+                if (type == CommemorationType.CUSTOM) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        CustomCountMode.entries.forEach { mode ->
+                            FilterChip(selected = countMode == mode, onClick = { countMode = mode }, label = { Text(mode.label) })
+                        }
+                    }
+                    ToggleRow("每年重复", annual) { annual = it }
+                }
                 ToggleRow("每年标注公历日期", solarTrack) { solarTrack = it }
                 ToggleRow("每年标注农历日期", lunarTrack) { lunarTrack = it }
                 OutlinedTextField(note, { note = it }, label = { Text("备注（可选）") }, modifier = Modifier.fillMaxWidth())
@@ -96,7 +109,7 @@ fun CommemorationEditor(
                     parsed == null -> error = "日期格式应为 YYYY-MM-DD"
                     parsed.year !in 1901..2100 -> error = "仅支持 1901—2100 年"
                     !solarTrack && !lunarTrack -> error = "至少启用一条年度轨道"
-                    else -> onSave(name, type, basis, parsed, leapMonth, note, solarTrack, lunarTrack)
+                    else -> onSave(name, type, basis, parsed, leapMonth, note, solarTrack, lunarTrack, countMode, annual)
                 }
             }) { Text("保存") }
         },

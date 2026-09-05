@@ -23,6 +23,8 @@ data class CommemorationEntity(
     val reminderEnabled: Boolean = true,
     val reminderAdvanceDays: Int = 7,
     val reminderMinutesOfDay: Int = 9 * 60,
+    val customCountMode: String = "COUNTDOWN",
+    val annual: Boolean = true,
     val createdAt: Long = System.currentTimeMillis(),
 )
 

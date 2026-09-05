@@ -74,6 +74,12 @@ class SuijiRepository(private val database: AppDatabase) {
 
     fun occurrencesForYear(item: CommemorationEntity, year: Int): List<CommemorationOccurrence> {
         val results = mutableListOf<CommemorationOccurrence>()
+        if (!item.annual) {
+            val original = LocalDate.ofEpochDay(item.originalSolarEpochDay)
+            return if (original.year == year) {
+                listOf(CommemorationOccurrence(item, ResolvedDate(original, OccurrenceTrack.SOLAR)))
+            } else emptyList()
+        }
         if (item.enableSolarTrack) {
             val original = LocalDate.ofEpochDay(item.originalSolarEpochDay)
             results += CommemorationOccurrence(item, CalendarEngine.resolveSolarAnniversary(original, year))
