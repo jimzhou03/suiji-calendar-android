@@ -45,8 +45,11 @@ import com.jimzhou03.suijicalendar.core.date.CalendarEngine
 import com.jimzhou03.suijicalendar.core.model.CommemorationType
 import com.jimzhou03.suijicalendar.data.CommemorationOccurrence
 import com.jimzhou03.suijicalendar.data.local.CommemorationEntity
+import com.jimzhou03.suijicalendar.data.local.TaskSeriesEntity
 import com.jimzhou03.suijicalendar.ui.SuijiViewModel
 import com.jimzhou03.suijicalendar.ui.commemoration.CommemorationEditor
+import com.jimzhou03.suijicalendar.ui.task.TaskEditor
+import com.jimzhou03.suijicalendar.ui.task.TaskRow
 import com.kizitonwose.calendar.compose.HorizontalCalendar
 import com.kizitonwose.calendar.compose.rememberCalendarState
 import com.kizitonwose.calendar.core.CalendarDay
@@ -66,10 +69,15 @@ fun CalendarScreen(viewModel: SuijiViewModel) {
     var selectedDate by remember { mutableStateOf(today) }
     var editorTarget by remember { mutableStateOf<CommemorationEntity?>(null) }
     var showEditor by remember { mutableStateOf(false) }
+    var showTaskEditor by remember { mutableStateOf(false) }
+    var taskEditorTarget by remember { mutableStateOf<TaskSeriesEntity?>(null) }
     val commemorations by viewModel.commemorations.collectAsState()
+    val series by viewModel.taskSeries.collectAsState()
+    val taskOccurrences by viewModel.taskOccurrences.collectAsState()
     val selectedOccurrences = remember(selectedDate, commemorations) {
         viewModel.repository.occurrencesOn(selectedDate, commemorations)
     }
+    val selectedTasks = remember(selectedDate, series, taskOccurrences) { viewModel.tasksOn(selectedDate) }
     val state = rememberCalendarState(
         startMonth = YearMonth.of(CalendarEngine.MIN_YEAR, 1),
         endMonth = YearMonth.of(CalendarEngine.MAX_YEAR, 12),
@@ -101,11 +109,15 @@ fun CalendarScreen(viewModel: SuijiViewModel) {
                     val occurrences = remember(day.date, commemorations) {
                         if (day.position == DayPosition.MonthDate) viewModel.repository.occurrencesOn(day.date, commemorations) else emptyList()
                     }
+                    val dayTasks = remember(day.date, series, taskOccurrences) {
+                        if (day.position == DayPosition.MonthDate) viewModel.tasksOn(day.date) else emptyList()
+                    }
                     DayCell(
                         day = day,
                         selected = day.date == selectedDate,
                         today = day.date == today,
                         occurrences = occurrences,
+                        taskProgress = dayTasks.count { it.state == com.jimzhou03.suijicalendar.core.model.TaskState.COMPLETED } to dayTasks.size,
                         onClick = { selectedDate = day.date },
                     )
                 },
@@ -114,9 +126,15 @@ fun CalendarScreen(viewModel: SuijiViewModel) {
             DayDetails(
                 date = selectedDate,
                 occurrences = selectedOccurrences,
+                tasks = selectedTasks,
                 onAdd = { editorTarget = null; showEditor = true },
+                onAddTask = { taskEditorTarget = null; showTaskEditor = true },
                 onEdit = { editorTarget = it; showEditor = true },
                 onDelete = viewModel::deleteCommemoration,
+                onToggleTask = viewModel::setTaskCompleted,
+                onMoveTask = viewModel::moveTaskToToday,
+                onEditTask = { taskEditorTarget = it; showTaskEditor = true },
+                onDeleteTask = viewModel::deleteTask,
             )
         }
     }
@@ -131,6 +149,12 @@ fun CalendarScreen(viewModel: SuijiViewModel) {
                 showEditor = false
             },
         )
+    }
+    if (showTaskEditor) {
+        TaskEditor(selectedDate, taskEditorTarget, { showTaskEditor = false }) { title, note, date, recurrence, days, reminder ->
+            viewModel.saveTask(taskEditorTarget, title, note, date, recurrence, days, reminder)
+            showTaskEditor = false
+        }
     }
 }
 
@@ -149,6 +173,7 @@ private fun DayCell(
     selected: Boolean,
     today: Boolean,
     occurrences: List<CommemorationOccurrence>,
+    taskProgress: Pair<Int, Int>,
     onClick: () -> Unit,
 ) {
     val inMonth = day.position == DayPosition.MonthDate
@@ -174,6 +199,9 @@ private fun DayCell(
                     )
                 }
             }
+            if (taskProgress.second > 0) {
+                Text("${taskProgress.first}/${taskProgress.second}", fontSize = 9.sp, color = MaterialTheme.colorScheme.tertiary)
+            }
         }
     }
 }
@@ -182,9 +210,15 @@ private fun DayCell(
 private fun DayDetails(
     date: LocalDate,
     occurrences: List<CommemorationOccurrence>,
+    tasks: List<com.jimzhou03.suijicalendar.core.task.TaskItem>,
     onAdd: () -> Unit,
+    onAddTask: () -> Unit,
     onEdit: (CommemorationEntity) -> Unit,
     onDelete: (CommemorationEntity) -> Unit,
+    onToggleTask: (com.jimzhou03.suijicalendar.core.task.TaskItem, Boolean) -> Unit,
+    onMoveTask: (com.jimzhou03.suijicalendar.core.task.TaskItem) -> Unit,
+    onEditTask: (TaskSeriesEntity) -> Unit,
+    onDeleteTask: (TaskSeriesEntity) -> Unit,
 ) {
     LazyColumn(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         item {
@@ -217,6 +251,25 @@ private fun DayDetails(
                     AssistChip(onClick = { onEdit(occurrence.commemoration) }, label = { Text(occurrence.resolved.track.label) })
                     IconButton(onClick = { onDelete(occurrence.commemoration) }) { Icon(Icons.Outlined.Delete, "删除") }
                 }
+            }
+        }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
+                Text("每日清单", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                IconButton(onClick = onAddTask) { Icon(Icons.Outlined.Add, "新增清单事项") }
+            }
+        }
+        if (tasks.isEmpty()) item { Text("当天暂无清单事项。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        tasks.forEach { task ->
+            item(key = "task-${task.occurrenceId ?: "${task.series.id}-${task.scheduledDate}"}") {
+                TaskRow(
+                    item = task,
+                    shownDate = date,
+                    onToggle = { onToggleTask(task, it) },
+                    onMoveToday = { onMoveTask(task) },
+                    onEdit = { onEditTask(task.series) },
+                    onDelete = { onDeleteTask(task.series) },
+                )
             }
         }
     }

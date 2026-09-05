@@ -4,9 +4,12 @@ import androidx.room.withTransaction
 import com.jimzhou03.suijicalendar.core.date.CalendarEngine
 import com.jimzhou03.suijicalendar.core.date.ResolvedDate
 import com.jimzhou03.suijicalendar.core.model.OccurrenceTrack
+import com.jimzhou03.suijicalendar.core.model.TaskState
+import com.jimzhou03.suijicalendar.core.task.TaskItem
 import com.jimzhou03.suijicalendar.data.local.AppDatabase
 import com.jimzhou03.suijicalendar.data.local.CommemorationEntity
 import java.time.LocalDate
+import java.util.UUID
 
 data class CommemorationOccurrence(
     val commemoration: CommemorationEntity,
@@ -23,6 +26,51 @@ class SuijiRepository(private val database: AppDatabase) {
 
     suspend fun saveCommemoration(item: CommemorationEntity) = commemorationsDao.upsert(item)
     suspend fun deleteCommemoration(item: CommemorationEntity) = commemorationsDao.delete(item)
+    suspend fun saveTaskSeries(item: com.jimzhou03.suijicalendar.data.local.TaskSeriesEntity) = taskDao.upsertSeries(item)
+    suspend fun deleteTaskSeries(item: com.jimzhou03.suijicalendar.data.local.TaskSeriesEntity) = taskDao.deleteSeries(item)
+
+    suspend fun setTaskCompleted(item: TaskItem, completed: Boolean) {
+        val state = if (completed) TaskState.COMPLETED else TaskState.PENDING
+        taskDao.upsertOccurrence(
+            com.jimzhou03.suijicalendar.data.local.TaskOccurrenceEntity(
+                id = item.occurrenceId ?: 0,
+                seriesId = item.series.id,
+                scheduledEpochDay = item.scheduledDate.toEpochDay(),
+                displayEpochDay = item.displayDate.toEpochDay(),
+                state = state.name,
+                completedAt = if (completed) System.currentTimeMillis() else null,
+                linkGroupId = item.linkGroupId,
+                migrationCopy = item.migrationCopy,
+            ),
+        )
+    }
+
+    suspend fun moveTaskToDate(item: TaskItem, target: LocalDate) = database.withTransaction {
+        require(item.state == TaskState.PENDING) { "只能迁移待完成事项" }
+        require(item.displayDate != target) { "事项已在目标日期" }
+        val link = item.linkGroupId ?: UUID.randomUUID().toString()
+        taskDao.upsertOccurrence(
+            com.jimzhou03.suijicalendar.data.local.TaskOccurrenceEntity(
+                id = item.occurrenceId ?: 0,
+                seriesId = item.series.id,
+                scheduledEpochDay = item.scheduledDate.toEpochDay(),
+                displayEpochDay = item.displayDate.toEpochDay(),
+                state = TaskState.MOVED.name,
+                linkGroupId = link,
+                migrationCopy = item.migrationCopy,
+            ),
+        )
+        taskDao.insertOccurrence(
+            com.jimzhou03.suijicalendar.data.local.TaskOccurrenceEntity(
+                seriesId = item.series.id,
+                scheduledEpochDay = item.scheduledDate.toEpochDay(),
+                displayEpochDay = target.toEpochDay(),
+                state = TaskState.PENDING.name,
+                linkGroupId = link,
+                migrationCopy = true,
+            ),
+        )
+    }
 
     fun occurrencesForYear(item: CommemorationEntity, year: Int): List<CommemorationOccurrence> {
         val results = mutableListOf<CommemorationOccurrence>()
