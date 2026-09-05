@@ -25,31 +25,15 @@ class BackupManager(
 ) {
     suspend fun exportTo(uri: Uri) {
         val (commemorations, series, occurrences) = repository.snapshot()
-        val root = JSONObject()
-            .put("format", "suiji-calendar-backup")
-            .put("version", CURRENT_VERSION)
-            .put("createdAt", System.currentTimeMillis())
-            .put("commemorations", JSONArray().apply { commemorations.forEach { put(it.toJson()) } })
-            .put("taskSeries", JSONArray().apply { series.forEach { put(it.toJson()) } })
-            .put("taskOccurrences", JSONArray().apply { occurrences.forEach { put(it.toJson()) } })
+        val payload = BackupPayload(CURRENT_VERSION, System.currentTimeMillis(), commemorations, series, occurrences)
         checkNotNull(context.contentResolver.openOutputStream(uri, "w")) { "无法打开目标文件" }
-            .bufferedWriter(Charsets.UTF_8).use { it.write(root.toString(2)) }
+            .bufferedWriter(Charsets.UTF_8).use { it.write(BackupCodec.encode(payload)) }
     }
 
     fun readFrom(uri: Uri): BackupPayload {
         val text = checkNotNull(context.contentResolver.openInputStream(uri)) { "无法打开备份文件" }
             .bufferedReader(Charsets.UTF_8).use { it.readText() }
-        val root = JSONObject(text)
-        require(root.optString("format") == "suiji-calendar-backup") { "不是岁记日历备份" }
-        val version = root.getInt("version")
-        require(version == CURRENT_VERSION) { "不支持的备份版本：$version" }
-        return BackupPayload(
-            version = version,
-            createdAt = root.getLong("createdAt"),
-            commemorations = root.getJSONArray("commemorations").mapObjects(::commemorationFromJson),
-            taskSeries = root.getJSONArray("taskSeries").mapObjects(::seriesFromJson),
-            taskOccurrences = root.getJSONArray("taskOccurrences").mapObjects(::occurrenceFromJson),
-        )
+        return BackupCodec.decode(text)
     }
 
     suspend fun import(payload: BackupPayload, mode: ImportMode) {
@@ -60,6 +44,31 @@ class BackupManager(
     }
 
     companion object { const val CURRENT_VERSION = 1 }
+}
+
+object BackupCodec {
+    fun encode(payload: BackupPayload): String = JSONObject()
+        .put("format", "suiji-calendar-backup")
+        .put("version", payload.version)
+        .put("createdAt", payload.createdAt)
+        .put("commemorations", JSONArray().apply { payload.commemorations.forEach { put(it.toJson()) } })
+        .put("taskSeries", JSONArray().apply { payload.taskSeries.forEach { put(it.toJson()) } })
+        .put("taskOccurrences", JSONArray().apply { payload.taskOccurrences.forEach { put(it.toJson()) } })
+        .toString(2)
+
+    fun decode(text: String): BackupPayload {
+        val root = JSONObject(text)
+        require(root.optString("format") == "suiji-calendar-backup") { "不是岁记日历备份" }
+        val version = root.getInt("version")
+        require(version == BackupManager.CURRENT_VERSION) { "不支持的备份版本：$version" }
+        return BackupPayload(
+            version = version,
+            createdAt = root.getLong("createdAt"),
+            commemorations = root.getJSONArray("commemorations").mapObjects(::commemorationFromJson),
+            taskSeries = root.getJSONArray("taskSeries").mapObjects(::seriesFromJson),
+            taskOccurrences = root.getJSONArray("taskOccurrences").mapObjects(::occurrenceFromJson),
+        )
+    }
 }
 
 private fun CommemorationEntity.toJson() = JSONObject()
