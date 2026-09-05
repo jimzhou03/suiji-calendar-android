@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -30,6 +31,7 @@ private enum class MainDestination(val route: String, val label: String) {
 
 @Composable
 fun SuijiApp() {
+    val viewModel: SuijiViewModel = viewModel()
     val navController = rememberNavController()
     val entry by navController.currentBackStackEntryAsState()
     val current = entry?.destination?.route ?: MainDestination.CALENDAR.route
@@ -68,7 +70,7 @@ fun SuijiApp() {
             startDestination = MainDestination.CALENDAR.route,
             modifier = Modifier.padding(padding),
         ) {
-            composable(MainDestination.CALENDAR.route) { CalendarScreen() }
+            composable(MainDestination.CALENDAR.route) { CalendarScreen(viewModel) }
             composable(MainDestination.COUNTDOWN.route) { PlaceholderScreen("倒数日", "重要日子会以卡片呈现") }
             composable(MainDestination.TODAY.route) { PlaceholderScreen("今日清单", "今天要完成的事") }
             composable(MainDestination.SETTINGS.route) { PlaceholderScreen("设置", "提醒、备份与隐私") }
