@@ -32,6 +32,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +62,7 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,13 +87,19 @@ fun CalendarScreen(viewModel: SuijiViewModel) {
         firstDayOfWeek = DayOfWeek.MONDAY,
     )
     val visibleMonth by remember { derivedStateOf { state.firstVisibleMonth.yearMonth } }
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(visibleMonth.format(DateTimeFormatter.ofPattern("yyyy年 M月")), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = { selectedDate = today }) { Icon(Icons.Outlined.Today, "回到今天") }
+                    IconButton(
+                        onClick = {
+                            selectedDate = today
+                            coroutineScope.launch { state.animateScrollToMonth(YearMonth.from(today)) }
+                        },
+                    ) { Icon(Icons.Outlined.Today, "回到今天") }
                 },
                 actions = {
                     FilledTonalIconButton(onClick = { editorTarget = null; showEditor = true }) {
@@ -231,7 +239,7 @@ private fun DayDetails(
             }
         }
         if (occurrences.isEmpty()) {
-            item { Text("当天暂无纪念日，下方清单会在下一阶段接入。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item { Text("当天暂无纪念日。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
         occurrences.forEach { occurrence ->
             item(key = "${occurrence.commemoration.id}-${occurrence.resolved.track}") {
